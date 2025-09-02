@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const SIGNUP_ZOD_SCHEMA = z.object({
+export const AUTH_ZOD_SCHEMA = z.object({
   username: z
     .string()
     .min(1, { message: "username required" })
