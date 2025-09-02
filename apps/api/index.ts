@@ -152,7 +152,7 @@ app.post(
       const newWebsite = await prismaClient.website.create({
         data: {
           url: url,
-          timeAdded: new Date(),
+          time_added: new Date(),
           user_id: userId!,
         },
       });
@@ -195,11 +195,11 @@ app.get(
           },
         },
       });
-      if(!existingWebsite){
+      if (!existingWebsite) {
         return res.status(409).json({
-          success:false,
-          message:"Not Found"
-        })
+          success: false,
+          message: "Not Found",
+        });
       }
       res.status(200).json({
         success: true,
