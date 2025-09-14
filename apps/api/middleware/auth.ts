@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import jwt, { type JwtPayload } from "jsonwebtoken";
 import { JWT_SECRET } from "../config";
+import { prismaClient } from "store/client";
 
 interface AUTH_PAYLOAD extends JwtPayload {
   id: string;
@@ -28,7 +29,21 @@ export const authMiddleware = async (
       });
     }
 
+    const existingUser = await prismaClient.user.findFirst({
+      where: {
+        id: decoded.id ?? "",
+      },
+    });
+
+    if (!existingUser) {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
     req.userId = decoded.id;
+    req.user = existingUser;
     next();
   } catch (error) {
     console.log(error);
