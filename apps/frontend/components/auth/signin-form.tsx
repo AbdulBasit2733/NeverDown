@@ -1,18 +1,18 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { motion } from 'framer-motion'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import * as z from 'zod'
-import Link from 'next/link'
-import { Eye, EyeOff, Github, Mail, Loader2, ArrowLeft } from 'lucide-react'
+import { useState } from "react";
+import { motion } from "framer-motion";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import Link from "next/link";
+import { Eye, EyeOff, Github, Mail, Loader2, ArrowLeft } from "lucide-react";
 
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Separator } from '@/components/ui/separator'
-import { Checkbox } from '@/components/ui/checkbox'
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Form,
   FormControl,
@@ -20,38 +20,55 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form'
+} from "@/components/ui/form";
+import axios from "axios";
+import { BACKEND_URL } from "@/lib/utils";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 const signinSchema = z.object({
-  email: z.email({ message: 'Please enter a valid email address' }),
-  password: z.string().min(6, { message: 'Password must be at least 6 characters' }),
+  username: z.string({ message: "Please enter a valid username address" }),
+  password: z
+    .string()
+    .min(6, { message: "Password must be at least 6 characters" }),
   rememberMe: z.boolean(),
-})
+});
 
-type SigninFormData = z.infer<typeof signinSchema>
+type SigninFormData = z.infer<typeof signinSchema>;
 
 export function SigninForm() {
-  const [showPassword, setShowPassword] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
 
   const form = useForm<SigninFormData>({
     resolver: zodResolver(signinSchema),
     defaultValues: {
-      email: '',
-      password: '',
+      username: "",
+      password: "",
       rememberMe: false,
     },
-  })
+  });
 
   const onSubmit = async (data: SigninFormData) => {
-    setIsLoading(true)
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    
-    console.log('Signin data:', data)
-    setIsLoading(false)
-  }
+    try {
+      setIsLoading(true);
+
+      console.log("Signin data:", data);
+      const res = await axios.post(`${BACKEND_URL}/signin`, data);
+      if (res.data.success) {
+        localStorage.setItem("token", res.data.data.token);
+        toast.success("Signin Successfully");
+        router.push("/dashboard");
+      }
+    } catch (error: any) {
+      console.log(error);
+
+      alert(error.response?.data || error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const containerVariants = {
     hidden: { opacity: 0, y: 20 },
@@ -60,15 +77,15 @@ export function SigninForm() {
       y: 0,
       transition: {
         duration: 0.6,
-        staggerChildren: 0.1
-      }
-    }
-  }
+        staggerChildren: 0.1,
+      },
+    },
+  };
 
   const itemVariants = {
     hidden: { opacity: 0, y: 10 },
-    visible: { opacity: 1, y: 0 }
-  }
+    visible: { opacity: 1, y: 0 },
+  };
 
   return (
     <motion.div
@@ -78,9 +95,12 @@ export function SigninForm() {
       className="space-y-6"
     >
       {/* Header */}
-      <motion.div variants={itemVariants} className="flex flex-col space-y-2 text-center">
-        <Link 
-          href="/" 
+      <motion.div
+        variants={itemVariants}
+        className="flex flex-col space-y-2 text-center"
+      >
+        <Link
+          href="/"
           className="inline-flex items-center text-sm text-muted-foreground hover:text-primary mb-4 self-start group"
         >
           <ArrowLeft className="mr-2 h-4 w-4 group-hover:-translate-x-1 transition-transform" />
@@ -104,13 +124,15 @@ export function SigninForm() {
             Google
           </Button>
         </div>
-        
+
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
             <Separator className="w-full" />
           </div>
           <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
+            <span className="bg-background px-2 text-muted-foreground">
+              Or continue with
+            </span>
           </div>
         </div>
       </motion.div>
@@ -121,16 +143,16 @@ export function SigninForm() {
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
-              name="email"
+              name="username"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email</FormLabel>
+                  <FormLabel>username</FormLabel>
                   <FormControl>
                     <Input
                       placeholder="name@example.com"
-                      type="email"
+                      type="username"
                       autoCapitalize="none"
-                      autoComplete="email"
+                      autoComplete="username"
                       autoCorrect="off"
                       disabled={isLoading}
                       {...field}
@@ -151,7 +173,7 @@ export function SigninForm() {
                     <div className="relative">
                       <Input
                         placeholder="Enter your password"
-                        type={showPassword ? 'text' : 'password'}
+                        type={showPassword ? "text" : "password"}
                         autoComplete="current-password"
                         disabled={isLoading}
                         {...field}
@@ -170,7 +192,7 @@ export function SigninForm() {
                           <Eye className="h-4 w-4" />
                         )}
                         <span className="sr-only">
-                          {showPassword ? 'Hide password' : 'Show password'}
+                          {showPassword ? "Hide password" : "Show password"}
                         </span>
                       </Button>
                     </div>
@@ -219,11 +241,14 @@ export function SigninForm() {
 
       {/* Footer */}
       <motion.div variants={itemVariants} className="text-center text-sm">
-        <span className="text-muted-foreground">Don't have an account?</span>{' '}
-        <Link href="/signup" className="text-primary hover:underline font-medium">
+        <span className="text-muted-foreground">Don't have an account?</span>{" "}
+        <Link
+          href="/signup"
+          className="text-primary hover:underline font-medium"
+        >
           Sign up
         </Link>
       </motion.div>
     </motion.div>
-  )
+  );
 }

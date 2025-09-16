@@ -10,42 +10,67 @@ import { JWT_SECRET } from "./config";
 import { authMiddleware } from "./middleware/auth";
 
 const app = express();
+app.use(cookieParser()); // IMPORTANT: so req.cookies works
 app.use(express.json());
 
-app.use(cors());
-app.use(cookieParser()); // IMPORTANT: so req.cookies works
+app.use(
+  cors({
+    origin: "http://localhost:3000",
+    credentials: true,
+    methods: ["GET", "POST", "PATCH", "DELETE", "PUT"],
+  })
+);
 
 app.post("/signup", async (req: Request, res: Response) => {
+  console.log("Signup request:", req.body);
+
   try {
+    // validate request body with zod
     const result = AUTH_ZOD_SCHEMA.safeParse(req.body);
+
     if (!result.success) {
       const errMessages = result.error.issues.map((err) => err.message);
-      return res.status(400).json({ success: false, message: errMessages });
+      return res.status(400).json({
+        success: false,
+        message: "Validation failed",
+        errors: errMessages,
+      });
     }
+
     const { username, password } = result.data;
-    const existingUser = await prismaClient.user.findFirst({
+
+    // check if user exists
+    const existingUser = await prismaClient.user.findUnique({
       where: { username },
     });
+
     if (existingUser) {
       return res
         .status(400)
-        .json({ success: false, message: "User Already Exists" });
+        .json({ success: false, message: "User already exists" });
     }
+
+    // hash password
     const hashedPassword = await bcrypt.hash(password, 12);
+
+    // create user
     await prismaClient.user.create({
       data: { username, password: hashedPassword },
     });
+
     return res
-      .status(200)
-      .json({ success: true, message: "Signup Successfully" });
+      .status(201)
+      .json({ success: true, message: "Signup successful" });
   } catch (error) {
+    console.error("Signup error:", error);
     return res
       .status(500)
-      .json({ success: false, message: "Internal Server Error" });
+      .json({ success: false, message: "Internal server error" });
   }
 });
 
 app.post("/signin", async (req: Request, res: Response) => {
+  console.log("Signin", req.body);
   try {
     const result = AUTH_ZOD_SCHEMA.safeParse(req.body);
     if (!result.success) {
@@ -79,9 +104,13 @@ app.post("/signin", async (req: Request, res: Response) => {
       sameSite: "lax",
       maxAge: 15 * 60 * 1000,
     });
-    return res
-      .status(200)
-      .json({ success: true, message: "Sign In Successful" });
+    return res.status(200).json({
+      success: true,
+      data: {
+        token:token,
+      },
+      message: "Sign In Successful",
+    });
   } catch (error) {
     return res
       .status(500)
