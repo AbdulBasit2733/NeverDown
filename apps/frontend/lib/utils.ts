@@ -6,3 +6,8 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export const BACKEND_URL = "http://localhost:3005"
+
+export const getToken = () => {
+  const token = localStorage.getItem("token") ?? ""
+  return token;
+}

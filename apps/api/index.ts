@@ -32,8 +32,7 @@ app.post("/signup", async (req: Request, res: Response) => {
       const errMessages = result.error.issues.map((err) => err.message);
       return res.status(400).json({
         success: false,
-        message: "Validation failed",
-        errors: errMessages,
+        message: errMessages[0] || "Validation Failed",
       });
     }
 
@@ -75,7 +74,10 @@ app.post("/signin", async (req: Request, res: Response) => {
     const result = AUTH_ZOD_SCHEMA.safeParse(req.body);
     if (!result.success) {
       const errMessages = result.error.issues.map((err) => err.message);
-      return res.status(400).json({ success: false, message: errMessages });
+      return res.status(400).json({
+        success: false,
+        message: errMessages[0] || "Validation Failed",
+      });
     }
     const { username, password } = result.data;
     const existingUser = await prismaClient.user.findFirst({
@@ -107,7 +109,7 @@ app.post("/signin", async (req: Request, res: Response) => {
     return res.status(200).json({
       success: true,
       data: {
-        token:token,
+        token: token,
       },
       message: "Sign In Successful",
     });
@@ -172,6 +174,31 @@ app.get(
     }
   }
 );
+
+app.get("/websites", async (req: Request, res: Response) => {
+  try {
+    const all_websites = await prismaClient.website.findMany({
+      where: {
+        user_id: req.userId,
+      },
+      include: { ticks: { orderBy: [{ createdAt: "desc" }], take: 1 } },
+    });
+
+    console.log("All Websites", all_websites);
+    
+    res.status(200).json({
+      success: true,
+      message: "Fetched Websites",
+      data: all_websites,
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+});
 
 app.get("/check-auth", authMiddleware, (req: Request, res: Response) => {
   const user = req.user;

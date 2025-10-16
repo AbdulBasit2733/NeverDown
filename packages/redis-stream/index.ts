@@ -1,4 +1,5 @@
 import { createClient } from "redis";
+import type { RedisStreamResponse, StreamEntry } from "./types";
 
 export const redisClient = await createClient({
   url: "redis://localhost:6379/0",
@@ -40,7 +41,9 @@ export async function xADD_BULK(websites: WebsiteEvent[]) {
 export async function xREAD_GROUP(
   consumerGroup: string,
   workerId: string
-): Promise<MessageType[] | undefined> {
+): Promise<StreamEntry[] | undefined> {
+  
+  // Apply a type assertion (using 'as') here:
   const res = await redisClient.xReadGroup(
     consumerGroup,
     workerId,
@@ -51,12 +54,15 @@ export async function xREAD_GROUP(
     {
       COUNT: 5,
     }
-  );
-  console.log("XREADGROUP", res);
-  // //@ts-ignore
-  // let messages = res?.[0].messages
-
-  return res;
+  ) as RedisStreamResponse[] | null; // <--- The Fix: Assert the expected type
+  
+  // No messages read or error occurred
+  if (!res || res.length === 0) {
+    return undefined;
+  }
+  
+  // Extract and return the messages array
+  return res[0]?.messages;
 }
 
 async function xACK(consumerGroup: string, eventId: string) {

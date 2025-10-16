@@ -1,9 +1,8 @@
 import axios from "axios";
 import { prismaClient } from "store/client";
 import { xAckBulk, xREAD_GROUP } from "redis-stream/redis-client";
-import { resolve } from "bun";
-export const REGION_ID = process.env.REGION_ID!;
-export const WORKER_ID = process.env.WORKER_ID!;
+export const REGION_ID = process.env.REGION_ID ?? "eu-west-1";
+export const WORKER_ID = process.env.WORKER_ID ?? "worker-a";
 
 async function main() {
   while (1) {
@@ -16,7 +15,7 @@ async function main() {
     }
 
     let promises = res
-      ? res.map(({ id, message }) => fetchWebsite(message.url, message.id))
+      ? res.map(({ id, message }) => fetchWebsite(message.url, message.id)) // <--- This now works!
       : [];
     await Promise.all(promises);
 

@@ -22,7 +22,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import axios from "axios";
-import { BACKEND_URL } from "@/lib/utils";
+import { BACKEND_URL, getToken } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -58,13 +58,15 @@ export function SigninForm() {
       const res = await axios.post(`${BACKEND_URL}/signin`, data);
       if (res.data.success) {
         localStorage.setItem("token", res.data.data.token);
+        const token = getToken();
+        document.cookie = `token=${token} path=/; expires=${new Date(Date.now() + 86400000).toUTCString()}; SameSite=Lax`;
         toast.success("Signin Successfully");
         router.push("/dashboard");
       }
     } catch (error: any) {
       console.log(error);
 
-      alert(error.response?.data || error.message);
+      toast.error(error.response?.data || error.message || "Something Went Wrong")
     } finally {
       setIsLoading(false);
     }
