@@ -1,66 +1,114 @@
-import axios from "axios";
+import { createClient, type RedisClientType } from "redis";
 import { prismaClient } from "store/client";
-import { xAckBulk, xREAD_GROUP } from "redis-stream/redis-client";
-export const REGION_ID = process.env.REGION_ID ?? "eu-west-1";
-export const WORKER_ID = process.env.WORKER_ID ?? "worker-a";
+import axios from "axios";
+import { xAckBulk } from "redis-stream/redis-client";
 
-async function main() {
-  while (1) {
-    // read form stream
+const REGION_ID = process.env.REGION_ID!;
+const WORKER_ID = process.env.WORKER_ID!;
 
-    const res = await xREAD_GROUP(REGION_ID, WORKER_ID);
+if (!REGION_ID) {
+  throw new Error("Region not provided");
+}
+if (!WORKER_ID) {
+  throw new Error("Worker not provided");
+}
 
-    if (!res) {
-      return;
+interface StreamMessage {
+  id: string;     // website_id in DB
+  url: string;
+}
+// --- separated website processing function ---
+async function processWebsiteMessage(message: StreamMessage) {
+  const url =
+    message.url.startsWith("http://") || message.url.startsWith("https://")
+      ? message.url
+      : `https://${message.url}`;
+
+  const startTime = Date.now();
+
+  try {
+    await axios.get(url, { timeout: 10_000 });
+
+    await prismaClient.website_tick.create({
+      data: {
+        status: "up",
+        response_time_ms: Date.now() - startTime,
+        region_id: REGION_ID,
+        website_id: message.id,
+      },
+    });
+  } catch (error) {
+    await prismaClient.website_tick.create({
+      data: {
+        status: "Down",
+        response_time_ms: Date.now() - startTime,
+        region_id: REGION_ID,
+        website_id: message.id,
+      },
+    });
+  }
+}
+async function main(): Promise<void> {
+  const client: RedisClientType = createClient();
+
+  client.on("error", (err: Error) => {
+    console.error("Redis Client Error", err);
+  });
+
+  await client.connect();
+
+  try {
+    while (true) {
+      const res: Array<{
+        name: string;
+        messages: Array<{
+          id: string;
+          message: StreamMessage;
+        }>;
+      }> | null = await client.xReadGroup(
+        REGION_ID,
+        WORKER_ID,
+        [
+          {
+            key: "neverdown:website",
+            id: ">",
+          },
+        ],
+        {
+          COUNT: 2,
+          BLOCK: 5000,
+        },
+      );
+
+      console.log("Worker Res", res);
+
+      if (!res) {
+        console.log("No more messages.");
+        continue;
+      }
+
+      // collect all IDs for bulk ack
+      const idsToAck: string[] = [];
+
+      for (const stream of res) {
+        for (const msg of stream.messages) {
+          const { id, message } = msg;
+
+          await processWebsiteMessage(message);
+          idsToAck.push(id);
+        }
+      }
+
+      // acknowledge all processed messages in bulk
+      await xAckBulk(REGION_ID, idsToAck);
     }
-
-    let promises = res
-      ? res.map(({ id, message }) => fetchWebsite(message.url, message.id)) // <--- This now works!
-      : [];
-    await Promise.all(promises);
-
-    console.log(promises.length);
-    // process the webiste and store the result in the db.
-    // TODO: IT shuld problly be routed through the queue in a bulk db request
-
-    // Acknowlege back to the queue that this event has been processed
-
-    xAckBulk(
-      REGION_ID,
-      res.map(({ id }) => id)
-    );
+  } catch (err) {
+    console.error("Worker error:", err);
+  } finally {
+    await client.quit();
   }
 }
 
-async function fetchWebsite(url: string, messageId: string) {
-  let startTime = Date.now();
-  return new Promise<void>((resolve, reject) => {
-    axios
-      .get(url)
-      .then(async () => {
-        const endTime = Date.now();
-        await prismaClient.website_tick.create({
-          data: {
-            response_time_ms: endTime - startTime,
-            status: "up",
-            region_id: REGION_ID,
-            website_id: messageId,
-          },
-        });
-        resolve();
-      })
-      .catch(async () => {
-        const endTime = Date.now();
-        await prismaClient.website_tick.create({
-          data: {
-            response_time_ms: endTime - startTime,
-            status: "Down",
-            region_id: REGION_ID,
-            website_id: messageId,
-          },
-        });
-        resolve();
-      });
-  });
-}
-main();
+main().catch((err) => {
+  console.error("Unhandled error in main:", err);
+});

@@ -1,27 +1,41 @@
+import { createClient } from "redis";
 import { prismaClient } from "store/client";
-import { xADD, xADD_BULK } from "redis-stream/redis-client";
-async function main() {
-  let websites = await prismaClient.website.findMany({
-    select: {
-      url: true,
-      id: true,
-    },
-  });
-  console.log(websites);
-  
 
-  await xADD_BULK(
-    websites.map((w) => ({
-      id: w.id,
-      url: w.url,
-    }))
-  );
+async function Main() {
+  const client = createClient();
+  client.on("error", (err) => console.log("Redis Client Error", err));
+
+  try {
+    await client.connect();
+
+    const websites = await prismaClient.website.findMany({
+      select: {
+        url: true,
+        id: true,
+      },
+    });
+
+    // We use a Promise.all or a loop to add each website as a separate message
+    if (websites && websites.length > 0) {
+      const promises = websites.map((wb) => 
+        client.xAdd(
+          "neverdown:website",
+          "*", // Auto-generate ID
+          { id: wb.id, url: wb.url } // Key-Value pairs
+        )
+      );
+
+      const results = await Promise.all(promises);
+      console.log(`Successfully added ${results.length} messages to the stream.`);
+    }
+  } catch (error) {
+    console.error("Execution error:", error);
+  } finally {
+    // Use .quit() for a graceful shutdown instead of .destroy()
+    await client.quit();
+  }
 }
 
-setInterval(
-  () => {
-    main();
-  },
-  3  * 1000
-);
-main();
+// Initial call and interval
+Main();
+setInterval(Main, 3 * 60 * 1000);

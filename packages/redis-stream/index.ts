@@ -20,7 +20,7 @@ type MessageType = {
   };
 };
 
-const STREAM_NAME = "neverdown:websites";
+const STREAM_NAME = "neverdown:website";
 
 export async function xADD({ url, id }: WebsiteEvent) {
   await redisClient.xAdd(STREAM_NAME, "*", {
