@@ -1,6 +1,6 @@
 'use client'
 
-import { motion } from 'framer-motion'
+import { motion, Variants } from "framer-motion"; 
 import { Button } from '@/components/ui/button'
 import { ArrowRight, Play, Shield, Zap, Globe } from 'lucide-react'
 
@@ -16,7 +16,7 @@ export function HeroSection() {
     }
   }
 
-  const itemVariants = {
+  const itemVariants:Variants = {
     hidden: { y: 20, opacity: 0 },
     visible: {
       y: 0,
