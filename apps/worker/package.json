@@ -4,8 +4,9 @@
   "type": "module",
   "private": true,
   "dependencies": {
+    "http": "^0.0.1-security",
     "redis-stream": "*",
-    "store":"*"
+    "store": "*"
   },
   "devDependencies": {
     "@types/bun": "latest"

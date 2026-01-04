@@ -2,6 +2,7 @@ import { createClient, type RedisClientType } from "redis";
 import { prismaClient } from "store/client";
 import axios from "axios";
 import { xAckBulk } from "redis-stream/redis-client";
+import http from "http";
 const REDIS_URL = process.env.REDIS_URL ?? "redis://localhost:6379/0";
 const REGION_ID = process.env.REGION_ID!;
 const WORKER_ID = process.env.WORKER_ID!;
@@ -12,6 +13,14 @@ if (!REGION_ID) {
 if (!WORKER_ID) {
   throw new Error("Worker not provided");
 }
+
+// --- DUMMY SERVER FOR RENDER (Keeps "Web Service" alive) ---
+const server = http.createServer((req, res) => {
+  res.writeHead(200);
+  res.end("Worker is running!");
+});
+server.listen(process.env.PORT || 8080);
+// -----------------------------------------------------------
 
 interface StreamMessage {
   id: string; // website_id in DB

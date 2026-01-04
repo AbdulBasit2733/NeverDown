@@ -1,6 +1,16 @@
 import { createClient } from "redis";
 import { prismaClient } from "store/client";
 const REDIS_URL = process.env.REDIS_URL ?? "redis://localhost:6379/0";
+import http from 'http'
+
+// --- DUMMY SERVER FOR RENDER --
+
+const server = http.createServer((req, res) => {
+  res.writeHead(200);
+  res.end("Pusher is running!");
+});
+server.listen(process.env.PORT || 8080);
+
 async function Main() {
   const client = createClient({
     url: REDIS_URL,
