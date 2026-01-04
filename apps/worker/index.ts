@@ -2,7 +2,7 @@ import { createClient, type RedisClientType } from "redis";
 import { prismaClient } from "store/client";
 import axios from "axios";
 import { xAckBulk } from "redis-stream/redis-client";
-
+const REDIS_URL = process.env.REDIS_URL ?? "redis://localhost:6379/0";
 const REGION_ID = process.env.REGION_ID!;
 const WORKER_ID = process.env.WORKER_ID!;
 
@@ -14,7 +14,7 @@ if (!WORKER_ID) {
 }
 
 interface StreamMessage {
-  id: string;     // website_id in DB
+  id: string; // website_id in DB
   url: string;
 }
 // --- separated website processing function ---
@@ -49,7 +49,9 @@ async function processWebsiteMessage(message: StreamMessage) {
   }
 }
 async function main(): Promise<void> {
-  const client: RedisClientType = createClient();
+  const client: RedisClientType = createClient({
+    url: REDIS_URL,
+  });
 
   client.on("error", (err: Error) => {
     console.error("Redis Client Error", err);
@@ -77,7 +79,7 @@ async function main(): Promise<void> {
         {
           COUNT: 2,
           BLOCK: 5000,
-        },
+        }
       );
 
       console.log("Worker Res", res);
