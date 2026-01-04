@@ -1,8 +1,9 @@
 import { createClient } from "redis";
 import type { RedisStreamResponse, StreamEntry } from "./types";
+const REDIS_URL = process.env.REDIS_URL ?? "redis://localhost:6379/0";
 
 export const redisClient = await createClient({
-  url: "redis://localhost:6379/0",
+  url: REDIS_URL,
 })
   .on("error", (err) => console.log("Redis Client Error", err))
   .connect();
@@ -42,9 +43,8 @@ export async function xREAD_GROUP(
   consumerGroup: string,
   workerId: string
 ): Promise<StreamEntry[] | undefined> {
-  
   // Apply a type assertion (using 'as') here:
-  const res = await redisClient.xReadGroup(
+  const res = (await redisClient.xReadGroup(
     consumerGroup,
     workerId,
     {
@@ -54,13 +54,13 @@ export async function xREAD_GROUP(
     {
       COUNT: 5,
     }
-  ) as RedisStreamResponse[] | null; // <--- The Fix: Assert the expected type
-  
+  )) as RedisStreamResponse[] | null; // <--- The Fix: Assert the expected type
+
   // No messages read or error occurred
   if (!res || res.length === 0) {
     return undefined;
   }
-  
+
   // Extract and return the messages array
   return res[0]?.messages;
 }
@@ -69,6 +69,6 @@ async function xACK(consumerGroup: string, eventId: string) {
   await redisClient.xAck(STREAM_NAME, consumerGroup, eventId);
 }
 
-export async function xAckBulk(consumerGroup:string, eventIds:string[]) {
-  eventIds.map(eventId => xACK(consumerGroup, eventId))
+export async function xAckBulk(consumerGroup: string, eventIds: string[]) {
+  eventIds.map((eventId) => xACK(consumerGroup, eventId));
 }
