@@ -10,7 +10,8 @@ import { JWT_SECRET } from "./config";
 import { authMiddleware } from "./middleware/auth";
 
 const app = express();
-app.use(cookieParser()); // IMPORTANT: so req.cookies works
+app.set("trust proxy", 1); 
+app.use(cookieParser());
 app.use(express.json());
 
 app.use(
@@ -97,15 +98,18 @@ app.post("/signin", async (req: Request, res: Response) => {
         .status(401)
         .json({ success: false, message: "Username or password is incorrect" });
     }
-    const token = jwt.sign({ id: existingUser.id }, JWT_SECRET, {
+   const token = jwt.sign({ id: existingUser.id }, JWT_SECRET, {
       expiresIn: "15m",
     });
+    
+    // Cookie Configuration Updates
     res.cookie("token", token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 15 * 60 * 1000,
+      secure: process.env.NODE_ENV === "production", 
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax", // Cross-site cookies need "none" on production
+      maxAge: 15 * 60 * 1000, // 15 mins
     });
+    
     return res.status(200).json({
       success: true,
       data: {
@@ -119,6 +123,42 @@ app.post("/signin", async (req: Request, res: Response) => {
       .json({ success: false, message: "Internal Server Error" });
   }
 });
+
+app.post("/auth/logout", (req: Request, res: Response) => {
+  res.clearCookie("token", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+  });
+  
+  return res.status(200).json({ success: true, message: "Logged out successfully" });
+});
+
+// NEW: Refresh endpoint to read cookie and return user info
+app.post("/auth/refresh", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const userId = req.userId;
+    
+    const user = await prismaClient.user.findUnique({
+      where: { id: userId },
+      select: { id: true, username: true }
+    });
+    
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+    
+    // In our new frontend logic (authService.ts), it expects email field, so we map username to email
+    return res.status(200).json({ 
+      success: true, 
+      userId: user.id, 
+      email: user.username // mapping username to email to match frontend interface
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Internal Server Error" });
+  }
+});
+
 
 app.post(
   "/add-website",
