@@ -1,58 +1,39 @@
 import type { Request, Response, NextFunction } from "express";
-import jwt, { type JwtPayload } from "jsonwebtoken";
-import { JWT_SECRET } from "../config";
-import { prismaClient } from "store/client";
+import jwt from "jsonwebtoken";
+import { JWT_ACCESS_SECRET } from "../config";
 
-interface AUTH_PAYLOAD extends JwtPayload {
-  id: string;
+export interface AuthRequest extends Request {
+  userId?: string;
 }
 
 export const authMiddleware = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
+  const token = req.cookies?.accessToken;
+
+  if (!token) {
+    return res.status(401).json({ error: "Unauthorized: No access token" });
+  }
+
   try {
-    // const token = req.cookies?.token ?? "";
-    const token = req.headers.authorization ?? "";
-    console.log("token",req.cookies);
-    
-    if (!token) {
-      return res.status(400).json({
-        success: false,
-        message: "Token Not Found",
-      });
-    }
-    const decoded = jwt.verify(token, JWT_SECRET) as AUTH_PAYLOAD;
-
-    if (!decoded || !decoded.id) {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid token",
-      });
+    const decoded = jwt.verify(token, JWT_ACCESS_SECRET);
+    if (
+      typeof decoded !== "object" ||
+      decoded === null ||
+      !("userId" in decoded)
+    ) {
+      return res
+        .status(401)
+        .json({ error: "Unauthorized: Invalid token payload" });
     }
 
-    const existingUser = await prismaClient.user.findFirst({
-      where: {
-        id: decoded.id ?? "",
-      },
-    });
-
-    if (!existingUser) {
-      return res.status(403).json({
-        success: false,
-        message: "Unauthorized",
-      });
-    }
-
-    req.userId = decoded.id;
-    req.user = existingUser;
+    req.userId = (decoded as { userId: string }).userId;
     next();
-  } catch (error) {
-    console.log(error);
-    res.status(500).json({
-      success: false,
-      message: "Authentication Failed",
-    });
+  } catch {
+    return res
+      .status(401)
+      .json({ error: "Unauthorized: Invalid or expired token" });
   }
 };
