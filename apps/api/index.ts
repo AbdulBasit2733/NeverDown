@@ -6,20 +6,29 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { prismaClient } from "store/client";
 import { ADD_WEBSITE_ZOD_SCHEMA, AUTH_ZOD_SCHEMA } from "./types";
-import { JWT_SECRET } from "./config";
+import {
+  cookieOptions,
+  JWT_ACCESS_SECRET,
+  JWT_REFRESH_SECRET,
+} from "./config";
 import { authMiddleware } from "./middleware/auth";
 
 const app = express();
-app.set("trust proxy", 1); 
+app.set("trust proxy", 1);
 app.use(cookieParser());
 app.use(express.json());
 
 app.use(
   cors({
-    origin: ["http://localhost:5173", "https://neverdown.onrender.com", "https://neverdown-fe.onrender.com", "http://localhost:3000"],
+    origin: [
+      "http://localhost:5173",
+      "https://neverdown.onrender.com",
+      "https://neverdown-fe.onrender.com",
+      "http://localhost:3000",
+    ],
     credentials: true,
     methods: ["GET", "POST", "PATCH", "DELETE", "PUT"],
-  })
+  }),
 );
 
 app.post("/signup", async (req: Request, res: Response) => {
@@ -91,32 +100,36 @@ app.post("/signin", async (req: Request, res: Response) => {
     }
     const isValidPassword = await bcrypt.compare(
       password,
-      existingUser.password
+      existingUser.password,
     );
     if (!isValidPassword) {
       return res
         .status(401)
         .json({ success: false, message: "Username or password is incorrect" });
     }
-   const token = jwt.sign({ id: existingUser.id }, JWT_SECRET, {
-      expiresIn: "15m",
+    const accessToken = jwt.sign(
+      { userId: existingUser.id },
+      JWT_ACCESS_SECRET,
+      { expiresIn: "15m" },
+    );
+    const refreshToken = jwt.sign(
+      { userId: existingUser.id, username: existingUser.username },
+      JWT_REFRESH_SECRET,
+      { expiresIn: "7d" },
+    );
+
+    res.cookie("accessToken", accessToken, {
+      ...cookieOptions,
+      maxAge: 15 * 60 * 1000,
     });
-    
-    // Cookie Configuration Updates
-    res.cookie("token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production", 
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax", // Cross-site cookies need "none" on production
-      maxAge: 15 * 60 * 1000, // 15 mins
+    res.cookie("refreshToken", refreshToken, {
+      ...cookieOptions,
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
-    
-    return res.status(200).json({
-      success: true,
-      data: {
-        token: token,
-      },
-      message: "Sign In Successful",
-    });
+
+    res
+      .status(200)
+      .json({ userId: existingUser.id, username: existingUser.username });
   } catch (error) {
     return res
       .status(500)
@@ -124,41 +137,49 @@ app.post("/signin", async (req: Request, res: Response) => {
   }
 });
 
-app.post("/auth/logout", (req: Request, res: Response) => {
-  res.clearCookie("token", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-  });
-  
-  return res.status(200).json({ success: true, message: "Logged out successfully" });
+app.post("/auth/logout", async (req: Request, res: Response) => {
+  res.clearCookie("accessToken", cookieOptions);
+  res.clearCookie("refreshToken", cookieOptions);
+
+  res.status(200).json({ message: "Logged out successfully" });
 });
 
 // NEW: Refresh endpoint to read cookie and return user info
-app.post("/auth/refresh", authMiddleware, async (req: Request, res: Response) => {
-  try {
-    const userId = req.userId;
-    
-    const user = await prismaClient.user.findUnique({
-      where: { id: userId },
-      select: { id: true, username: true }
-    });
-    
-    if (!user) {
-      return res.status(404).json({ success: false, message: "User not found" });
-    }
-    
-    // In our new frontend logic (authService.ts), it expects email field, so we map username to email
-    return res.status(200).json({ 
-      success: true, 
-      userId: user.id, 
-      email: user.username // mapping username to email to match frontend interface
-    });
-  } catch (error) {
-    return res.status(500).json({ success: false, message: "Internal Server Error" });
-  }
-});
+app.post(
+  "/auth/refresh",
+  authMiddleware,
+  async (req: Request, res: Response) => {
+    try {
+      const { refreshToken } = req.cookies;
+      if (!refreshToken)
+        return res.status(401).json({ error: "No refresh token provided" });
 
+      jwt.verify(refreshToken, JWT_REFRESH_SECRET, (err: any, decoded: any) => {
+        if (err)
+          return res.status(403).json({ error: "Invalid refresh token" });
+
+        const newAccessToken = jwt.sign(
+          { userId: decoded.userId },
+          JWT_ACCESS_SECRET,
+          { expiresIn: "15m" },
+        );
+
+        res.cookie("accessToken", newAccessToken, {
+          ...cookieOptions,
+          maxAge: 15 * 60 * 1000,
+        });
+
+        res.status(200).json({
+          userId: decoded.userId,
+          email: decoded.email,
+          message: "token refreshed",
+        });
+      });
+    } catch {
+      res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
 
 app.post(
   "/add-website",
@@ -189,7 +210,7 @@ app.post(
         .status(500)
         .json({ success: false, message: "Internal Server Error" });
     }
-  }
+  },
 );
 
 app.get(
@@ -212,7 +233,7 @@ app.get(
         .status(500)
         .json({ success: false, message: "Internal Server Error" });
     }
-  }
+  },
 );
 
 app.get("/websites", async (req: Request, res: Response) => {
@@ -225,7 +246,7 @@ app.get("/websites", async (req: Request, res: Response) => {
     });
 
     console.log("All Websites", all_websites);
-    
+
     res.status(200).json({
       success: true,
       message: "Fetched Websites",
