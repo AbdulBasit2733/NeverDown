@@ -15,7 +15,7 @@ app.use(express.json());
 
 app.use(
   cors({
-    origin: ["http://localhost:5173", "https://neverdown-fe.onrender.com"],
+    origin: ["http://localhost:5173", "https://neverdown-fe.onrender.com", "http://localhost:3000"],
     credentials: true,
     methods: ["GET", "POST", "PATCH", "DELETE", "PUT"],
   })
