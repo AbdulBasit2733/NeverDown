@@ -1,12 +1,24 @@
 import { createClient } from "redis";
 import type { RedisStreamResponse, StreamEntry } from "./types";
 const REDIS_URL = process.env.REDIS_URL ?? "redis://localhost:6379/0";
-
-export const redisClient = await createClient({
+const isSecure = REDIS_URL.startsWith('redis://');
+``
+export const redisClient = createClient({
   url: REDIS_URL,
-})
-  .on("error", (err) => console.log("Redis Client Error", err))
-  .connect();
+  socket: {
+    family: 4,
+    keepAlive: 30000,
+    reconnectStrategy: (retries) => Math.min(retries * 100, 3000),
+    ...(isSecure && { tls: true, rejectUnauthorized: false })
+  }
+});
+
+redisClient.on("error", (err) => {
+  if (err.message.includes('Socket closed unexpectedly')) return;
+  console.error("Shared Redis Client Error", err);
+});
+
+await redisClient.connect();
 
 type WebsiteEvent = {
   url: string;

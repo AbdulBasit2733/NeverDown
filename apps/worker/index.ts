@@ -58,15 +58,35 @@ async function processWebsiteMessage(message: StreamMessage) {
   }
 }
 async function main(): Promise<void> {
+  const isSecure = REDIS_URL.startsWith("redis://");
+
   const client: RedisClientType = createClient({
     url: REDIS_URL,
+    socket: {
+      family: 4, // Force IPv4
+      keepAlive: 30000, // Send TCP keep-alive every 30s so Upstash doesn't kill it
+      reconnectStrategy: (retries) => {
+        console.log(`Reconnecting to Upstash... Attempt ${retries}`);
+        return Math.min(retries * 100, 3000); // Exponential backoff max 3s
+      },
+      ...(isSecure && {
+        tls: true,
+        rejectUnauthorized: false,
+      }),
+    },
   });
 
   client.on("error", (err: Error) => {
+    // Ignore the specific socket closed error, the reconnectStrategy will handle it
+    if (err.message.includes("Socket closed unexpectedly")) {
+      console.warn("Upstash closed socket, auto-reconnecting...");
+      return;
+    }
     console.error("Redis Client Error", err);
   });
 
   await client.connect();
+  console.log("Worker connected to Upstash");
 
   try {
     while (true) {
@@ -88,7 +108,7 @@ async function main(): Promise<void> {
         {
           COUNT: 2,
           BLOCK: 5000,
-        }
+        },
       );
 
       console.log("Worker Res", res);

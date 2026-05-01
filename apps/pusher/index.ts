@@ -2,7 +2,7 @@ import { createClient } from "redis";
 import { prismaClient } from "store/client";
 const REDIS_URL = process.env.REDIS_URL ?? "redis://localhost:6379/0";
 import http from 'http'
-
+const isSecure = REDIS_URL.startsWith('redis://');
 // --- DUMMY SERVER FOR RENDER --
 
 const server = http.createServer((req, res) => {
@@ -12,8 +12,15 @@ const server = http.createServer((req, res) => {
 server.listen(process.env.PORT || 8080);
 
 async function Main() {
-  const client = createClient({
+   const client = createClient({
     url: REDIS_URL,
+    socket: {
+      family: 4, // Force IPv4
+      ...(isSecure && {
+        tls: true,
+        rejectUnauthorized: false
+      })
+    }
   });
   client.on("error", (err) => console.log("Redis Client Error", err));
 
@@ -43,8 +50,9 @@ async function Main() {
   } catch (error) {
     console.error("Execution error:", error);
   } finally {
-    // Use .quit() for a graceful shutdown instead of .destroy()
-    await client.quit();
+    if (client.isOpen) {
+      await client.quit(); 
+    }
   }
 }
 
