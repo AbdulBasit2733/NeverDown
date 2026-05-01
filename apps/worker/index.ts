@@ -2,7 +2,8 @@ import { createClient, type RedisClientType } from "redis";
 import { prismaClient } from "store/client";
 import axios from "axios";
 import { xAckBulk } from "redis-stream/redis-client";
-import http from "http";
+
+
 const REDIS_URL = process.env.REDIS_URL ?? "redis://localhost:6379/0";
 const REGION_ID = process.env.REGION_ID!;
 const WORKER_ID = process.env.WORKER_ID!;
@@ -13,14 +14,6 @@ if (!REGION_ID) {
 if (!WORKER_ID) {
   throw new Error("Worker not provided");
 }
-
-// --- DUMMY SERVER FOR RENDER (Keeps "Web Service" alive) ---
-const server = http.createServer((req, res) => {
-  res.writeHead(200);
-  res.end("Worker is running!");
-});
-server.listen(process.env.PORT || 8080);
-// -----------------------------------------------------------
 
 interface StreamMessage {
   id: string; // website_id in DB
@@ -58,35 +51,15 @@ async function processWebsiteMessage(message: StreamMessage) {
   }
 }
 async function main(): Promise<void> {
-  const isSecure = REDIS_URL.startsWith("redis://");
-
+  // Simple, clean connection
   const client: RedisClientType = createClient({
     url: REDIS_URL,
-    socket: {
-      family: 4, // Force IPv4
-      keepAlive: 30000, // Send TCP keep-alive every 30s so Upstash doesn't kill it
-      reconnectStrategy: (retries) => {
-        console.log(`Reconnecting to Upstash... Attempt ${retries}`);
-        return Math.min(retries * 100, 3000); // Exponential backoff max 3s
-      },
-      ...(isSecure && {
-        tls: true,
-        rejectUnauthorized: false,
-      }),
-    },
   });
 
-  client.on("error", (err: Error) => {
-    // Ignore the specific socket closed error, the reconnectStrategy will handle it
-    if (err.message.includes("Socket closed unexpectedly")) {
-      console.warn("Upstash closed socket, auto-reconnecting...");
-      return;
-    }
-    console.error("Redis Client Error", err);
-  });
+  client.on("error", (err: Error) => console.error("Worker Redis Error:", err));
 
   await client.connect();
-  console.log("Worker connected to Upstash");
+  console.log("Worker successfully connected to Render Redis!");
 
   try {
     while (true) {

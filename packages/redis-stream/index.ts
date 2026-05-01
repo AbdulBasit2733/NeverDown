@@ -1,16 +1,9 @@
 import { createClient } from "redis";
 import type { RedisStreamResponse, StreamEntry } from "./types";
 const REDIS_URL = process.env.REDIS_URL ?? "redis://localhost:6379/0";
-const isSecure = REDIS_URL.startsWith('redis://');
-``
+
 export const redisClient = createClient({
   url: REDIS_URL,
-  socket: {
-    family: 4,
-    keepAlive: 30000,
-    reconnectStrategy: (retries) => Math.min(retries * 100, 3000),
-    ...(isSecure && { tls: true, rejectUnauthorized: false })
-  }
 });
 
 redisClient.on("error", (err) => {
