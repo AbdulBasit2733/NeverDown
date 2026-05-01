@@ -5,9 +5,9 @@ import {
   useEffect,
   useState,
   useCallback,
-} from 'react';
-import { useRouter } from 'next/navigation';
-import { authService, AuthUser } from '@/services/authService';
+} from "react";
+import { useRouter } from "next/navigation";
+import { authService, AuthUser } from "@/services/authService";
 
 interface AuthCtx {
   user: AuthUser | null;
@@ -27,7 +27,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     authService.refresh().then((authUser) => {
-      console.log("auth User", authUser)
       setUser(authUser);
       setIsLoading(false);
     });
@@ -37,23 +36,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async (email: string, password: string) => {
       const authUser = await authService.login(email, password);
       setUser(authUser);
-      router.push('/dashboard');
+      router.push("/dashboard");
     },
-    [router]
+    [router],
   );
 
   const register = useCallback(
     async (email: string, password: string) => {
       await authService.register(email, password);
-      router.push('/login?registered=true');
+      router.push("/login?registered=true");
     },
-    [router]
+    [router],
   );
 
   const logout = useCallback(async () => {
     await authService.logout();
     setUser(null);
-    router.push('/login');
+    router.push("/login");
   }, [router]);
 
   return (
@@ -74,6 +73,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 export const useAuth = () => {
   const ctx = useContext(Ctx);
-  if (!ctx) throw new Error('useAuth must be inside AuthProvider');
+  if (!ctx) throw new Error("useAuth must be inside AuthProvider");
   return ctx;
 };

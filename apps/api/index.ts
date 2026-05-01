@@ -147,7 +147,6 @@ app.post("/auth/logout", async (req: Request, res: Response) => {
 // NEW: Refresh endpoint to read cookie and return user info
 app.post(
   "/auth/refresh",
-  authMiddleware,
   async (req: Request, res: Response) => {
     try {
       const { refreshToken } = req.cookies;
@@ -171,7 +170,7 @@ app.post(
 
         res.status(200).json({
           userId: decoded.userId,
-          email: decoded.email,
+          username: decoded.username,
           message: "token refreshed",
         });
       });
@@ -259,20 +258,6 @@ app.get("/websites", async (req: Request, res: Response) => {
       message: "Internal Server Error",
     });
   }
-});
-
-app.get("/check-auth", authMiddleware, (req: Request, res: Response) => {
-  const user = req.user;
-  if (!user) {
-    return res.status(403).json({
-      success: false,
-      message: "Unauthorized user",
-    });
-  }
-  res.status(200).json({
-    success: true,
-    message: "Authorized",
-  });
 });
 
 const PORT = 3005;
