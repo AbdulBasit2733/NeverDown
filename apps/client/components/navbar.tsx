@@ -7,6 +7,7 @@ import { Separator } from "@/components/ui/separator";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Monitor, Menu, X } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
 const navItems = [
   { name: "Features", href: "#features" },
@@ -16,6 +17,7 @@ const navItems = [
 ];
 
 export function Navbar() {
+  const { user, logout } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const router = useRouter();
@@ -28,7 +30,9 @@ export function Navbar() {
 
   // Close menu on route change / resize
   useEffect(() => {
-    const onResize = () => { if (window.innerWidth >= 768) setIsOpen(false); };
+    const onResize = () => {
+      if (window.innerWidth >= 768) setIsOpen(false);
+    };
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
@@ -46,7 +50,6 @@ export function Navbar() {
         transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
       >
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-
           {/* ── Brand ── */}
           <button
             onClick={() => router.push("/")}
@@ -76,16 +79,30 @@ export function Navbar() {
 
           {/* ── Desktop CTA ── */}
           <div className="hidden md:flex items-center gap-2">
-            <Link href="/login">
-              <Button variant="ghost" size="sm" className="text-sm">
-                Sign In
+            {user?.username ? (
+              <Link href="/dashboard">
+                <Button variant="ghost" size="sm" className="text-sm">
+                  Dashboard
+                </Button>
+              </Link>
+            ) : (
+              <Link href="/login">
+                <Button variant="ghost" size="sm" className="text-sm">
+                  Sign In
+                </Button>
+              </Link>
+            )}
+            {user?.username ? (
+              <Button size="sm" className="text-sm" onClick={logout}>
+                Sign Out
               </Button>
-            </Link>
-            <Link href="/register">
-              <Button size="sm" className="text-sm">
-                Get Started
-              </Button>
-            </Link>
+            ) : (
+              <Link href="/register">
+                <Button size="sm" className="text-sm">
+                  Get Started
+                </Button>
+              </Link>
+            )}
           </div>
 
           {/* ── Mobile Hamburger ── */}
@@ -96,7 +113,6 @@ export function Navbar() {
           >
             {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
-
         </div>
       </motion.nav>
 
@@ -126,16 +142,25 @@ export function Navbar() {
               <Separator className="my-2" />
 
               <div className="flex flex-col gap-2">
-                <Link href="/login" onClick={() => setIsOpen(false)}>
-                  <Button variant="outline" size="sm" className="w-full">
-                    Sign In
+                {user?.username ? (
+                  <Button size="sm" className="w-full" onClick={logout}>
+                    Sign Out
                   </Button>
-                </Link>
-                <Link href="/register" onClick={() => setIsOpen(false)}>
-                  <Button size="sm" className="w-full">
-                    Get Started
-                  </Button>
-                </Link>
+                ) : null}
+                {user?.username ? null : (
+                  <Link href="/register" onClick={() => setIsOpen(false)}>
+                    <Button size="sm" className="w-full">
+                      Get Started
+                    </Button>
+                  </Link>
+                )}
+                {user?.username ? (
+                  <Link href="/login" onClick={() => setIsOpen(false)}>
+                    <Button variant="outline" size="sm" className="w-full">
+                      Sign In
+                    </Button>
+                  </Link>
+                ) : null}
               </div>
             </div>
           </motion.div>
