@@ -1,15 +1,14 @@
 import { BACKEND_URL } from "@/lib/utils";
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 
-
 // Extended config to track if a request has already been retried
 interface CustomAxiosRequestConfig extends InternalAxiosRequestConfig {
   _retry?: boolean;
 }
 
 export const api = axios.create({
-  baseURL: BACKEND_URL, // e.g., "/api/backend"
-  withCredentials: true, // MUST be true to send/receive cookies
+  baseURL: BACKEND_URL, 
+  withCredentials: true,
 });
   
 let isRefreshing = false;
@@ -34,7 +33,21 @@ api.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as CustomAxiosRequestConfig;
 
-    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
+    // 1. If we got rate limited by Render, stop immediately and redirect
+    if (error.response?.status === 429) {
+      if (typeof window !== "undefined") {
+        window.location.href = "/signin?error=rate_limited";
+      }
+      return Promise.reject(error);
+    }
+
+    // 2. IMPORTANT FIX: Do NOT run interceptor logic if the request that failed WAS the refresh endpoint
+    if (
+      error.response?.status === 401 && 
+      originalRequest && 
+      !originalRequest._retry &&
+      !originalRequest.url?.includes("/auth/refresh") // <--- THIS BREAKS THE INFINITE LOOP
+    ) {
       
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
