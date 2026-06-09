@@ -11,9 +11,15 @@ import { Monitor, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { useAuth } from "@/context/AuthContext";
+import { signIn } from "next-auth/react";
 
 const signinSchema = z.object({
   username: z.string().min(1, "Username is required"),
@@ -23,7 +29,6 @@ const signinSchema = z.object({
 type SigninForm = z.infer<typeof signinSchema>;
 
 export default function SigninPage() {
-  const { login } = useAuth();
   const [loading, setLoading] = useState(false);
 
   const {
@@ -38,32 +43,49 @@ export default function SigninPage() {
   const onSubmit = async (data: SigninForm) => {
     try {
       setLoading(true);
-      await login(data.username, data.password);
-      toast.success("Signed in successfully");
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "Invalid credentials");
+      const res = await signIn("credentials", {
+        redirect: false,
+        username: data.username,
+        password: data.password,
+        callbackUrl: "/dashboard",
+      });
+
+      if (res?.error) {
+        toast.error(res.error || "Invalid credentials");
+      } else {
+        toast.success("Signed in successfully");
+        window.location.href = "/dashboard";
+      }
+    } catch {
+      toast.error("Invalid credentials");
     } finally {
       setLoading(false);
     }
   };
 
+  const handleGoogleSignIn = () => {
+    signIn("google", { callbackUrl: "/dashboard" });
+  };
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-4">
       <div className="w-full max-w-sm space-y-6">
-
         {/* Brand */}
         <div className="flex flex-col items-center gap-2 text-center">
           <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-primary text-primary-foreground">
             <Monitor className="w-5 h-5" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight">NeverDown</h1>
-          <p className="text-sm text-muted-foreground">Sign in to your account</p>
+          <p className="text-sm text-muted-foreground">
+            Sign in to your account
+          </p>
         </div>
 
         {/* Card */}
         <Card className="border shadow-sm">
           <CardHeader className="pb-4">
-            <CardTitle className="text-base font-semibold">Welcome back</CardTitle>
+            <CardTitle className="text-base font-semibold">
+              Welcome back
+            </CardTitle>
             <CardDescription className="text-sm">
               Enter your credentials to continue
             </CardDescription>
@@ -71,7 +93,6 @@ export default function SigninPage() {
 
           <CardContent>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-
               <div className="space-y-1.5">
                 <Label htmlFor="username">Username</Label>
                 <Input
@@ -82,7 +103,9 @@ export default function SigninPage() {
                   {...register("username")}
                 />
                 {errors.username && (
-                  <p className="text-xs text-destructive">{errors.username.message}</p>
+                  <p className="text-xs text-destructive">
+                    {errors.username.message}
+                  </p>
                 )}
               </div>
 
@@ -96,7 +119,9 @@ export default function SigninPage() {
                   {...register("password")}
                 />
                 {errors.password && (
-                  <p className="text-xs text-destructive">{errors.password.message}</p>
+                  <p className="text-xs text-destructive">
+                    {errors.password.message}
+                  </p>
                 )}
               </div>
 
@@ -108,15 +133,26 @@ export default function SigninPage() {
 
             <Separator className="my-4" />
 
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={handleGoogleSignIn}
+            >
+              Continue with Google
+            </Button>
+
             <p className="text-center text-sm text-muted-foreground">
               Don&apos;t have an account?{" "}
-              <Link href="/register" className="text-primary font-medium hover:underline underline-offset-4">
+              <Link
+                href="/register"
+                className="text-primary font-medium hover:underline underline-offset-4"
+              >
                 Sign up
               </Link>
             </p>
           </CardContent>
         </Card>
-
       </div>
     </div>
   );

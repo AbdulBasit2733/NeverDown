@@ -7,7 +7,7 @@ import { Separator } from "@/components/ui/separator";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Monitor, Menu, X } from "lucide-react";
-import { useAuth } from "@/context/AuthContext";
+import { useSession, signOut } from "next-auth/react";
 
 const navItems = [
   { name: "Features", href: "#features" },
@@ -17,10 +17,13 @@ const navItems = [
 ];
 
 export function Navbar() {
-  const { user, logout } = useAuth();
+  const { data: session, status } = useSession();
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const router = useRouter();
+
+  const isAuthenticated = status === "authenticated";
+  const username = session?.user?.username || session?.user?.name || "";
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 50);
@@ -28,7 +31,6 @@ export function Navbar() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Close menu on route change / resize
   useEffect(() => {
     const onResize = () => {
       if (window.innerWidth >= 768) setIsOpen(false);
@@ -36,6 +38,10 @@ export function Navbar() {
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
+
+  const handleLogout = async () => {
+    await signOut({ callbackUrl: "/login" });
+  };
 
   return (
     <>
@@ -50,7 +56,6 @@ export function Navbar() {
         transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
       >
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-          {/* ── Brand ── */}
           <button
             onClick={() => router.push("/")}
             className="flex items-center gap-2.5 group outline-none"
@@ -64,7 +69,6 @@ export function Navbar() {
             </span>
           </button>
 
-          {/* ── Desktop Nav ── */}
           <div className="hidden md:flex items-center gap-1">
             {navItems.map((item) => (
               <a
@@ -77,12 +81,11 @@ export function Navbar() {
             ))}
           </div>
 
-          {/* ── Desktop CTA ── */}
           <div className="hidden md:flex items-center gap-2">
-            {user?.username ? (
+            {isAuthenticated ? (
               <Link href="/dashboard">
                 <Button variant="ghost" size="sm" className="text-sm">
-                  Dashboard
+                  {username ? `Hi, ${username}` : "Dashboard"}
                 </Button>
               </Link>
             ) : (
@@ -92,8 +95,9 @@ export function Navbar() {
                 </Button>
               </Link>
             )}
-            {user?.username ? (
-              <Button size="sm" className="text-sm" onClick={logout}>
+
+            {isAuthenticated ? (
+              <Button size="sm" className="text-sm" onClick={handleLogout}>
                 Sign Out
               </Button>
             ) : (
@@ -105,7 +109,6 @@ export function Navbar() {
             )}
           </div>
 
-          {/* ── Mobile Hamburger ── */}
           <button
             onClick={() => setIsOpen((prev) => !prev)}
             className="md:hidden flex items-center justify-center w-9 h-9 rounded-md hover:bg-accent transition-colors"
@@ -116,7 +119,6 @@ export function Navbar() {
         </div>
       </motion.nav>
 
-      {/* ── Mobile Menu ── */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -142,25 +144,31 @@ export function Navbar() {
               <Separator className="my-2" />
 
               <div className="flex flex-col gap-2">
-                {user?.username ? (
-                  <Button size="sm" className="w-full" onClick={logout}>
-                    Sign Out
-                  </Button>
-                ) : null}
-                {user?.username ? null : (
-                  <Link href="/register" onClick={() => setIsOpen(false)}>
-                    <Button size="sm" className="w-full">
-                      Get Started
+                {isAuthenticated ? (
+                  <>
+                    <Link href="/dashboard" onClick={() => setIsOpen(false)}>
+                      <Button variant="outline" size="sm" className="w-full">
+                        Dashboard
+                      </Button>
+                    </Link>
+                    <Button size="sm" className="w-full" onClick={handleLogout}>
+                      Sign Out
                     </Button>
-                  </Link>
+                  </>
+                ) : (
+                  <>
+                    <Link href="/login" onClick={() => setIsOpen(false)}>
+                      <Button variant="outline" size="sm" className="w-full">
+                        Sign In
+                      </Button>
+                    </Link>
+                    <Link href="/register" onClick={() => setIsOpen(false)}>
+                      <Button size="sm" className="w-full">
+                        Get Started
+                      </Button>
+                    </Link>
+                  </>
                 )}
-                {user?.username ? (
-                  <Link href="/login" onClick={() => setIsOpen(false)}>
-                    <Button variant="outline" size="sm" className="w-full">
-                      Sign In
-                    </Button>
-                  </Link>
-                ) : null}
               </div>
             </div>
           </motion.div>

@@ -20,6 +20,7 @@ import { Separator } from "@/components/ui/separator";
 import { useWebsites } from "@/hooks/useWebsites";
 import { StatCard } from "@/components/shared/stats-card";
 import { StatusBadge } from "@/components/shared/status-card";
+import { UserAccountMenu } from "@/components/dashboard/user-account-menu";
 
 export default function Dashboard() {
   const { websites, isAdding, addWebsite } = useWebsites();
@@ -61,10 +62,14 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <Button onClick={() => setIsModalOpen(true)} size="sm" className="gap-1.5">
-            <Plus className="w-4 h-4" />
-            Add Website
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button onClick={() => setIsModalOpen(true)} size="sm" className="gap-1.5">
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">Add Website</span>
+              <span className="sm:hidden">Add</span>
+            </Button>
+            <UserAccountMenu />
+          </div>
         </div>
 
         <Separator />

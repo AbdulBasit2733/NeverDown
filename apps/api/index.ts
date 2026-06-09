@@ -11,7 +11,7 @@ import {
   JWT_ACCESS_SECRET,
   JWT_REFRESH_SECRET,
 } from "./config";
-import { authMiddleware } from "./middleware/auth";
+import { internalAuthMiddleware } from "./middleware/internalAuth";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -78,6 +78,7 @@ app.post("/signup", async (req: Request, res: Response) => {
   }
 });
 
+/** @deprecated Legacy cookie auth — frontend uses NextAuth. Do not use from the client. */
 app.post("/signin", async (req: Request, res: Response) => {
   console.log("Signin", req.body);
   try {
@@ -98,6 +99,13 @@ app.post("/signin", async (req: Request, res: Response) => {
         .status(404)
         .json({ success: false, message: "User not found" });
     }
+    if (!existingUser.password) {
+      return res.status(401).json({
+        success: false,
+        message: "Username or password is incorrect",
+      });
+    }
+
     const isValidPassword = await bcrypt.compare(
       password,
       existingUser.password,
@@ -137,6 +145,7 @@ app.post("/signin", async (req: Request, res: Response) => {
   }
 });
 
+/** @deprecated Legacy cookie auth — frontend uses NextAuth. Do not use from the client. */
 app.post("/auth/logout", async (req: Request, res: Response) => {
   res.clearCookie("accessToken", cookieOptions);
   res.clearCookie("refreshToken", cookieOptions);
@@ -144,7 +153,7 @@ app.post("/auth/logout", async (req: Request, res: Response) => {
   res.status(200).json({ message: "Logged out successfully" });
 });
 
-// NEW: Refresh endpoint to read cookie and return user info
+/** @deprecated Legacy cookie auth — frontend uses NextAuth. Do not use from the client. */
 app.post(
   "/auth/refresh",
   async (req: Request, res: Response) => {
@@ -182,7 +191,7 @@ app.post(
 
 app.post(
   "/add-website",
-  authMiddleware,
+  internalAuthMiddleware,
   async (req: Request, res: Response) => {
     try {
       const userId = req.userId;
@@ -214,7 +223,7 @@ app.post(
 
 app.get(
   "/status/:websiteId",
-  authMiddleware,
+  internalAuthMiddleware,
   async (req: Request, res: Response) => {
     try {
       const websiteId = req.params.websiteId;
@@ -235,7 +244,7 @@ app.get(
   },
 );
 
-app.get("/websites", async (req: Request, res: Response) => {
+app.get("/websites", internalAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const all_websites = await prismaClient.website.findMany({
       where: {
@@ -257,6 +266,36 @@ app.get("/websites", async (req: Request, res: Response) => {
       success: false,
       message: "Internal Server Error",
     });
+  }
+});
+
+/** @deprecated Replaced by Next.js BFF + internalAuthMiddleware. Do not use. */
+app.post("/auth/session-token", async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ message: "Missing userId" });
+    }
+
+    const existingUser = await prismaClient.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!existingUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const accessToken = jwt.sign(
+      { userId: existingUser.id },
+      JWT_ACCESS_SECRET,
+      { expiresIn: "15m" },
+    );
+
+    return res.status(200).json({ accessToken });
+  } catch (error) {
+    console.error("session-token error:", error);
+    return res.status(500).json({ message: "Internal server error" });
   }
 });
 

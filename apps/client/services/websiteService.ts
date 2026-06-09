@@ -1,8 +1,5 @@
 import { api } from "./api";
 
-// =====================
-// Types
-// =====================
 export interface WebsiteTick {
   id: string;
   response_time_ms: number;
@@ -29,7 +26,12 @@ export const websiteService = {
   },
 
   async add(url: string): Promise<void> {
-    await api.post("/add-website", { url });
+    await api.post("/websites/add", { url });
+  },
+
+  async getStatus(websiteId: string) {
+    const { data } = await api.get(`/status/${websiteId}`);
+    return data.data;
   },
 
   transformWebsite(website: Website): WebsiteDisplay {
@@ -46,7 +48,12 @@ export const websiteService = {
 
     return {
       ...website,
-      status: latest.status === "up" ? "up" : latest.status === "Down" ? "down" : "checking",
+      status:
+        latest.status === "up"
+          ? "up"
+          : latest.status === "Down"
+            ? "down"
+            : "checking",
       responseTime: `${latest.response_time_ms} ms`,
       lastChecked: new Date(latest.createdAt).toLocaleString(),
     };
