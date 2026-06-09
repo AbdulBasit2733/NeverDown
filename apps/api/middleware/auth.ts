@@ -11,7 +11,12 @@ export const authMiddleware = async (
   res: Response,
   next: NextFunction,
 ) => {
-  const token = req.cookies?.accessToken;
+  const cookieToken = req.cookies?.accessToken;
+  const authHeader = req.headers.authorization;
+  const bearerToken =
+    authHeader?.startsWith("Bearer ") ? authHeader.split(" ")[1] : null;
+
+  const token = bearerToken || cookieToken;
 
   if (!token) {
     return res.status(401).json({ error: "Unauthorized: No access token" });
@@ -19,6 +24,7 @@ export const authMiddleware = async (
 
   try {
     const decoded = jwt.verify(token, JWT_ACCESS_SECRET);
+
     if (
       typeof decoded !== "object" ||
       decoded === null ||

@@ -1,23 +1,5 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { Monitor } from "lucide-react";
-import { Separator } from "@/components/ui/separator";
-
-const containerVariants = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.08 } },
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 16 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] as const },
-  },
-};
-
 const socialLinks = [
   {
     label: "Email",
