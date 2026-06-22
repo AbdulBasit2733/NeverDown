@@ -142,7 +142,7 @@ app.post("/auth/logout", async (req: Request, res: Response) => {
 });
 
 // NEW: Refresh endpoint to read cookie and return user info
-app.post("/auth/refresh", authLimiter, async (req: Request, res: Response) => {
+app.post("/auth/refresh", apiLimiter, async (req: Request, res: Response) => {
   try {
     const { refreshToken } = req.cookies;
     if (!refreshToken)

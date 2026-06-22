@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import {
-  Plus, Globe, ExternalLink, Monitor, Search, Loader2, X,
+  Plus, Globe, ExternalLink, Monitor, Search, Loader2, X, User, LogOut
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,11 +17,21 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useAuth } from "@/context/AuthContext";
 import { useWebsites } from "@/hooks/useWebsites";
 import { StatCard } from "@/components/shared/stats-card";
 import { StatusBadge } from "@/components/shared/status-card";
 
 export default function Dashboard() {
+  const { user, logout } = useAuth();
   const { websites, isAdding, addWebsite } = useWebsites();
   const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -61,10 +71,36 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <Button onClick={() => setIsModalOpen(true)} size="sm" className="gap-1.5">
-            <Plus className="w-4 h-4" />
-            Add Website
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button onClick={() => setIsModalOpen(true)} size="sm" className="gap-1.5">
+              <Plus className="w-4 h-4" />
+              Add Website
+            </Button>
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon" className="rounded-full h-9 w-9 ml-2">
+                  <User className="h-4 w-4" />
+                  <span className="sr-only">Toggle user menu</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none">{user?.username || "Account"}</p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem 
+                  className="text-destructive focus:text-destructive cursor-pointer" 
+                  onClick={() => logout()}
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Log out</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
 
         <Separator />

@@ -46,7 +46,7 @@ api.interceptors.response.use(
       error.response?.status === 401 && 
       originalRequest && 
       !originalRequest._retry &&
-      !originalRequest.url?.includes("/auth/refresh") // <--- THIS BREAKS THE INFINITE LOOP
+      !originalRequest.url?.includes("/auth/refresh")
     ) {
       
       if (isRefreshing) {
@@ -54,6 +54,7 @@ api.interceptors.response.use(
           failedQueue.push({ resolve, reject });
         })
           .then(() => {
+            originalRequest._retry = true;
             return api(originalRequest);
           })
           .catch((err) => {
@@ -73,7 +74,7 @@ api.interceptors.response.use(
       } catch (refreshError) {
         processQueue(refreshError, null);
         
-        if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+        if (typeof window !== "undefined" && window.location.pathname.startsWith("/dashboard")) {
           window.location.href = "/login";
         }
         
