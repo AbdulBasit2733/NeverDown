@@ -6,7 +6,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { prismaClient } from "store/client";
 import { ADD_WEBSITE_ZOD_SCHEMA, AUTH_ZOD_SCHEMA } from "./types";
-import { cookieOptions, JWT_ACCESS_SECRET, JWT_REFRESH_SECRET } from "./config";
+import { cookieOptions, isProd, JWT_ACCESS_SECRET, JWT_REFRESH_SECRET } from "./config";
 import { authMiddleware } from "./middleware/auth";
 import { apiLimiter, authLimiter } from "./middleware/rate-limiter";
 
@@ -135,8 +135,8 @@ app.post("/signin", authLimiter, async (req: Request, res: Response) => {
 });
 
 app.post("/auth/logout", async (req: Request, res: Response) => {
-  res.clearCookie("accessToken", cookieOptions);
-  res.clearCookie("refreshToken", cookieOptions);
+  res.clearCookie("accessToken", { path: "/", sameSite: "lax", secure: isProd, httpOnly: true });
+  res.clearCookie("refreshToken", { path: "/", sameSite: "lax", secure: isProd, httpOnly: true });
 
   res.status(200).json({ message: "Logged out successfully" });
 });
@@ -148,27 +148,48 @@ app.post("/auth/refresh", authLimiter, async (req: Request, res: Response) => {
     if (!refreshToken)
       return res.status(401).json({ error: "No refresh token provided" });
 
-    jwt.verify(refreshToken, JWT_REFRESH_SECRET, (err: any, decoded: any) => {
-      if (err) return res.status(403).json({ error: "Invalid refresh token" });
-
-      const newAccessToken = jwt.sign(
-        { userId: decoded.userId },
-        JWT_ACCESS_SECRET,
-        { expiresIn: "15m" },
-      );
-
-      res.cookie("accessToken", newAccessToken, {
-        ...cookieOptions,
-        maxAge: 15 * 60 * 1000,
-      });
-
-      res.status(200).json({
-        userId: decoded.userId,
-        username: decoded.username,
-        message: "token refreshed",
+    // Wrapping jwt.verify in a Promise to safely await it
+    const decoded = await new Promise<any>((resolve, reject) => {
+      jwt.verify(refreshToken, JWT_REFRESH_SECRET, (err: any, decoded: any) => {
+        if (err) reject(err);
+        else resolve(decoded);
       });
     });
-  } catch {
+
+    const newAccessToken = jwt.sign(
+      { userId: decoded.userId },
+      JWT_ACCESS_SECRET,
+      { expiresIn: "15m" },
+    );
+
+    // Refresh Token Rotation: issue a new refresh token and invalidate the old one
+    const newRefreshToken = jwt.sign(
+      { userId: decoded.userId, username: decoded.username },
+      JWT_REFRESH_SECRET,
+      { expiresIn: "7d" },
+    );
+
+    res.cookie("accessToken", newAccessToken, {
+      ...cookieOptions,
+      maxAge: 15 * 60 * 1000,
+    });
+    
+    res.cookie("refreshToken", newRefreshToken, {
+      ...cookieOptions,
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    res.status(200).json({
+      userId: decoded.userId,
+      username: decoded.username,
+      message: "token refreshed",
+    });
+  } catch (err: any) {
+    if (err.name === "TokenExpiredError" || err.name === "JsonWebTokenError") {
+      res.clearCookie("accessToken", { path: "/", sameSite: "lax", secure: isProd, httpOnly: true });
+      res.clearCookie("refreshToken", { path: "/", sameSite: "lax", secure: isProd, httpOnly: true });
+      return res.status(403).json({ error: "Invalid or expired refresh token" });
+    }
     res.status(500).json({ error: "Internal server error" });
   }
 });
