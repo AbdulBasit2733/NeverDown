@@ -35,8 +35,8 @@ api.interceptors.response.use(
 
     // 1. If we got rate limited by Render, stop immediately and redirect
     if (error.response?.status === 429) {
-      if (typeof window !== "undefined") {
-        window.location.href = "/signin?error=rate_limited";
+      if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+        window.location.href = "/login?error=rate_limited";
       }
       return Promise.reject(error);
     }
@@ -73,8 +73,8 @@ api.interceptors.response.use(
       } catch (refreshError) {
         processQueue(refreshError, null);
         
-        if (typeof window !== "undefined") {
-          window.location.href = "/signin";
+        if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+          window.location.href = "/login";
         }
         
         return Promise.reject(refreshError);
