@@ -251,7 +251,7 @@ app.get(
   },
 );
 
-app.get("/websites", async (req: Request, res: Response) => {
+app.get("/websites", authMiddleware, async (req: Request, res: Response) => {
   try {
     const all_websites = await prismaClient.website.findMany({
       where: {
@@ -260,7 +260,7 @@ app.get("/websites", async (req: Request, res: Response) => {
       include: { ticks: { orderBy: [{ createdAt: "desc" }], take: 1 } },
     });
 
-    console.log("All Websites", all_websites);
+    // console.log("All Websites", all_websites);
 
     res.status(200).json({
       success: true,
