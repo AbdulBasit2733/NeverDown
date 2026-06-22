@@ -76,7 +76,7 @@ app.post("/signup", authLimiter, async (req: Request, res: Response) => {
 });
 
 app.post("/signin", authLimiter, async (req: Request, res: Response) => {
-  console.log("Signin", req.body);
+  // console.log("Signin", req.body);
   try {
     const result = AUTH_ZOD_SCHEMA.safeParse(req.body);
     if (!result.success) {
@@ -90,7 +90,7 @@ app.post("/signin", authLimiter, async (req: Request, res: Response) => {
     const existingUser = await prismaClient.user.findFirst({
       where: { username },
     });
-    if (!existingUser) {
+    if (!existingUser || !existingUser.password) {
       return res
         .status(404)
         .json({ success: false, message: "User not found" });
