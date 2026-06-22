@@ -6,12 +6,9 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { prismaClient } from "store/client";
 import { ADD_WEBSITE_ZOD_SCHEMA, AUTH_ZOD_SCHEMA } from "./types";
-import {
-  cookieOptions,
-  JWT_ACCESS_SECRET,
-  JWT_REFRESH_SECRET,
-} from "./config";
+import { cookieOptions, JWT_ACCESS_SECRET, JWT_REFRESH_SECRET } from "./config";
 import { authMiddleware } from "./middleware/auth";
+import { apiLimiter, authLimiter } from "./middleware/rate-limiter";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -31,8 +28,8 @@ app.use(
   }),
 );
 
-app.post("/signup", async (req: Request, res: Response) => {
-  console.log("Signup request:", req.body);
+app.post("/signup", authLimiter, async (req: Request, res: Response) => {
+  // console.log("Signup request:", req.body);
 
   try {
     // validate request body with zod
@@ -78,7 +75,7 @@ app.post("/signup", async (req: Request, res: Response) => {
   }
 });
 
-app.post("/signin", async (req: Request, res: Response) => {
+app.post("/signin", authLimiter, async (req: Request, res: Response) => {
   console.log("Signin", req.body);
   try {
     const result = AUTH_ZOD_SCHEMA.safeParse(req.body);
@@ -145,40 +142,38 @@ app.post("/auth/logout", async (req: Request, res: Response) => {
 });
 
 // NEW: Refresh endpoint to read cookie and return user info
-app.post(
-  "/auth/refresh",
-  async (req: Request, res: Response) => {
-    try {
-      const { refreshToken } = req.cookies;
-      if (!refreshToken)
-        return res.status(401).json({ error: "No refresh token provided" });
+app.post("/auth/refresh", authLimiter, async (req: Request, res: Response) => {
+  try {
+    const { refreshToken } = req.cookies;
+    if (!refreshToken)
+      return res.status(401).json({ error: "No refresh token provided" });
 
-      jwt.verify(refreshToken, JWT_REFRESH_SECRET, (err: any, decoded: any) => {
-        if (err)
-          return res.status(403).json({ error: "Invalid refresh token" });
+    jwt.verify(refreshToken, JWT_REFRESH_SECRET, (err: any, decoded: any) => {
+      if (err) return res.status(403).json({ error: "Invalid refresh token" });
 
-        const newAccessToken = jwt.sign(
-          { userId: decoded.userId },
-          JWT_ACCESS_SECRET,
-          { expiresIn: "15m" },
-        );
+      const newAccessToken = jwt.sign(
+        { userId: decoded.userId },
+        JWT_ACCESS_SECRET,
+        { expiresIn: "15m" },
+      );
 
-        res.cookie("accessToken", newAccessToken, {
-          ...cookieOptions,
-          maxAge: 15 * 60 * 1000,
-        });
-
-        res.status(200).json({
-          userId: decoded.userId,
-          username: decoded.username,
-          message: "token refreshed",
-        });
+      res.cookie("accessToken", newAccessToken, {
+        ...cookieOptions,
+        maxAge: 15 * 60 * 1000,
       });
-    } catch {
-      res.status(500).json({ error: "Internal server error" });
-    }
-  },
-);
+
+      res.status(200).json({
+        userId: decoded.userId,
+        username: decoded.username,
+        message: "token refreshed",
+      });
+    });
+  } catch {
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.use(apiLimiter);
 
 app.post(
   "/add-website",
